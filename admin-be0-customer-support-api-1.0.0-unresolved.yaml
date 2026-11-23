@@ -1,0 +1,271 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: API системы клиентской поддержки
+  description: >-
+    REST API для создания, получения, изменения и удаления обращений клиентов.
+    Предусмотрены авторизация, проверка входных данных и обработка ошибок.
+
+paths:
+  /tickets/{ticketId}:
+    parameters:
+      - $ref: '#/components/parameters/TicketId'
+    get:
+      tags:
+        - Обращения
+      summary: Получить обращение по идентификатору
+      description: Возвращает информацию об обращении клиента.
+      operationId: getTicketById
+      responses:
+        '200':
+          description: Обращение успешно найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+
+        
+        '404':
+          description: Обращение не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+        '401':
+          description: Отсутствует или недействителен токен доступа
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                code: UNAUTHORIZED
+                message: Необходимо пройти аутентификацию
+
+        '403':
+          description: Недостаточно прав для просмотра обращения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                code: ACCESS_DENIED
+                message: Доступ к обращению запрещен
+
+
+    patch:
+      tags:
+        - Обращения
+      summary: Изменить статус обращения
+      description: Изменяет статус существующего обращения.
+      operationId: updateTicketStatus
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  description: Новый статус обращения
+                  enum:
+                    - new
+                    - in_progress
+                    - closed
+                  example: closed
+
+      responses:
+        '200':
+          description: Статус обращения успешно изменен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+
+        
+        '400':
+          description: Недопустимое значение статуса обращения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                code: INVALID_STATUS
+                message: Указан недопустимый статус обращения
+
+        '404':
+          description: Обращение не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                code: TICKET_NOT_FOUND
+                message: Обращение с идентификатором 125 не найдено
+
+    delete:
+      tags:
+        - Обращения
+      summary: Удалить обращение
+      description: >-
+        Логически удаляет обращение клиента.
+        Операция доступна только администратору.
+        После удаления обращение недоступно через GET.
+        Повторное удаление возвращает 404.
+      operationId: deleteTicket
+
+      responses:
+        '204':
+          description: Обращение успешно удалено
+
+        '401':
+          description: Отсутствует или недействителен токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                code: UNAUTHORIZED
+                message: Необходимо пройти аутентификацию
+
+        '403':
+          description: Недостаточно прав для удаления обращения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                code: ACCESS_DENIED
+                message: Удаление доступно только администратору
+
+        '404':
+          description: Обращение не найдено или уже удалено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                code: TICKET_NOT_FOUND
+                message: Обращение с идентификатором 125 не найдено
+
+  /tickets:
+    post:
+      tags:
+        - Обращения
+      summary: Создать новое обращение
+      description: Регистрирует новое обращение клиента.
+      operationId: createTicket
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - subject
+                - description
+              properties:
+                subject:
+                  type: string
+                  description: Тема нового обращения
+                  minLength: 5
+                  maxLength: 200
+                  example: Не работает авторизация
+                description:
+                  type: string
+                  description: Подробное описание проблемы
+                  example: После ввода пароля появляется ошибка
+
+      responses:
+        '201':
+          description: Обращение успешно создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+
+        
+        '400':
+          description: Некорректные данные нового обращения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                code: REQUIRED_FIELD_MISSING
+                message: Не заполнено обязательное поле subject
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Требуется токен Bearer."
+
+  parameters:
+    TicketId:
+      name: ticketId
+      in: path
+      required: true
+      description: Уникальный положительный идентификатор обращения
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        example: 125
+
+  schemas:
+    Ticket:
+      type: object
+      description: Информация об обращении клиента
+      required:
+        - id
+        - status
+        - subject
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор обращения
+          example: 125
+        status:
+          type: string
+          description: Текущий статус обращения
+          enum:
+            - new
+            - in_progress
+            - closed
+          example: in_progress
+        subject:
+          type: string
+          description: Тема обращения
+          example: Не работает авторизация
+
+    ApiError:
+      type: object
+      description: Информация об ошибке выполнения запроса
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Внутренний код ошибки
+          example: TICKET_NOT_FOUND
+        message:
+          type: string
+          description: Описание причины ошибки
+          example: Обращение с идентификатором 125 не найдено
+
+security:
+  - BearerAuth: []
+servers:
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/admin-be0/customer-support-api/1.0.0
+  - url: http://localhost:3001
+    description: Локальный тестовый сервер Mockoon
