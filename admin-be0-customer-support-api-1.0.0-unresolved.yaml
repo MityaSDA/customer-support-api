@@ -9,7 +9,7 @@ info:
 paths:
   /tickets/{ticketId}:
     parameters:
-      - $ref:
+      - $ref: '#/components/parameters/TicketId'
     get:
       tags:
         - Обращения
